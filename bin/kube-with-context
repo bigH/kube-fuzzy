@@ -22,6 +22,7 @@ fi
 
 KUBECTL_FORCE_CONTEXT="$(__kubectl_select_context)"
 if [ -n "$KUBECTL_FORCE_CONTEXT" ]; then
+  export KUBECTL_FORCE_CONTEXT
   "$@"
 else
   __log_warning "no context selected - not running command"

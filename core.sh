@@ -29,17 +29,19 @@ if [ -z "$FZF_DEFAULT_OPTS" ]; then
   --no-height"
 fi
 
-if [ -z "$KUBECTL_YAML_VIEWER" ]; then
+if [ -z "$KUBE_FUZZY_YAML_VIEWER" ]; then
   if __command_exists bat; then
-    KUBECTL_YAML_VIEWER="bat --color=always --language=yaml --style=plain"
+    KUBE_FUZZY_YAML_VIEWER="bat --color=always --language=yaml --style=plain"
   else
-    KUBECTL_YAML_VIEWER="less"
+    KUBE_FUZZY_YAML_VIEWER="less"
   fi
 fi
 
 RED="${RED:-$(tput setaf 1)}"
 GREEN="${GREEN:-$(tput setaf 2)}"
 YELLOW="${YELLOW:-$(tput setaf 3)}"
+CYAN="${CYAN:-$(tput setaf 6)}"
+MAGENTA="${MAGENTA:-$(tput setaf 5)}"
 BOLD="${BOLD:-$(tput bold)}"
 NORMAL="${NORMAL:-$(tput sgr0)}"
 
@@ -48,6 +50,27 @@ export GREEN
 export YELLOW
 export BOLD
 export NORMAL
+
+__log_command_oneline() {
+  printf '%s%s%s%s' "$GRAY" "$BOLD" '$ ' "$NORMAL"
+  printf '%s%s%s%s' "$CYAN" "$BOLD" "$(printf '%q' "$1")" "$NORMAL"
+  shift
+  printf '%s' "$GREEN"
+  printf ' %q' "$@"
+  printf '%s' "$NORMAL"
+}
+
+__confirm_then_execute() {
+  __log_command_oneline "$@"
+  printf '%s' "$MAGENTA" "$BOLD" " [y/N] " "$NORMAL"
+  if read -r response; then
+    if [[ "$response" = 'y'* ]] || \
+       [[ "$response" = 'Y'* ]] || \
+       [[ "$response" = '' ]] ; then
+      "$@"
+    fi
+  fi
+}
 
 __kubectl_select_one() {
   SUBJECT=pods
@@ -63,7 +86,7 @@ __kubectl_select_one() {
       --no-multi \
       --ansi \
       --header-lines=1 \
-      --preview "kubectl get $SUBJECT $ARGS {1} -o yaml | $KUBECTL_YAML_VIEWER" | \
+      --preview "kubectl get $SUBJECT $ARGS {1} -o yaml | $KUBE_FUZZY_YAML_VIEWER" | \
     awk '{ print $1 }'
 }
 
@@ -75,7 +98,7 @@ __kubectl_select_resource_type() {
       --no-multi \
       --ansi \
       --header-lines=1 \
-      --preview "kubectl get {1} $ARGS | $KUBECTL_YAML_VIEWER" | \
+      --preview "kubectl get {1} $ARGS | $KUBE_FUZZY_YAML_VIEWER" | \
     awk '{ print $1 }'
 }
 

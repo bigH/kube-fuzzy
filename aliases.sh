@@ -1,15 +1,16 @@
-alias k='kubectl-wrapper'
-alias kg='kubectl-wrapper --log-context get'
-alias kd='kubectl-wrapper --log-context describe'
-alias kl='kubectl-wrapper --log-context logs'
-alias kc='kubectl-wrapper config'
+alias kf=kube-fuzzy
 
-alias kcc='kubectl config current-context'
+# exec default is `-it bash`, so select a pod and get a shell
+alias kx=kube-fuzzy exec
 
-alias kfv='kf get'
-alias kfg='kf get'
-alias kfd='kf describe'
-alias kfe='kf edit'
+# set namespace / context durably
+alias ksn=kube-set-namespace
+alias ksc=kube-set-context
 
-alias kscn='ksc ; ksn'
+# set namespace / context for just this command
+alias kwn=kube-with-namespace
+alias kwc=kube-with-context
+
+# set namespace & context for just this command
+alias kwcn=kube-with-context kube-with-namespace
 

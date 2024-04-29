@@ -6,26 +6,24 @@ path_to_repo_root="$( cd -- "$(dirname "$path_to_script")" >/dev/null 2>&1 ; pwd
 
 source "$path_to_repo_root/core.sh"
 
+if [ -z "$KUBE_FUZZY_DEFAULT_EXEC" ]; then
+  KUBE_FUZZY_DEFAULT_EXEC=(-it bash)
+fi
+
 # shellcheck disable=2016
-HELP_TEXT="
+help_text="
 Usage:
-  kf  <action> ...
-
-  # interactively selects namespace to apply command to
-  kfn <action> ...
-
-  # interactively selects context to apply command to
-  kfc <action> ...
+  $0 <action> ...
 
 Arguments:
   '--' splits the arg list into 3 useful parts
   '---' is equivalent to '-- --'
 
-  kf <command> [type] [...global args] -- [...get args] -- [...preview args]
-  kf <command> [type] [...global args] --- [...preview args]
+  $0 <command> [type] [...global args] -- [...get args] -- [...preview args]
+  $0 <command> [type] [...global args] --- [...preview args]
 
   # For example, this command
-  kf exec --context=foo -n bar --- -it bin/console
+  $0 exec --context=foo -n bar --- -it bin/console
 
     # Delegates to this one for the list
     kubectl get pod --context=foo -n bar
@@ -41,18 +39,18 @@ Commands:
   # Interactively list and look at the YAML for some <type> (get + describe)
 
     # print resource name
-    kf get <type> [...args]
+    $0 get <type> [...args]
 
     # print yaml of resource
-    kf describe <type> [...args]
+    $0 describe <type> [...args]
 
   # Interactively select an item of <type> to edit
 
-    kf edit <type> [...args]
+    $0 edit <type> [...args]
 
-  # Interactively select a pod to execute a command against (no args == '-it bash')
+  # Interactively select a pod to execute a command against (no args == '${KUBE_FUZZY_DEFAULT_EXEC[*]}')
 
-    kf exec [...args]
+    $0 exec [...args]
 
 Gotchas:
 
@@ -63,92 +61,113 @@ Gotchas:
 kube_fuzzy() {
   if [ "$#" -eq 0 ]; then
     __log_error "${BOLD}action${NORMAL} (exec, describe, etc.) is ${BOLD}required${NORMAL}"
-    echo "$HELP_TEXT"
+    echo "$help_text"
     return 1
   else
     # get action
-    ACTION="$1"
+    action="$1"
     shift
 
     # split the arg list
-    ARG_TYPE='0'
+    arg_type='0'
 
-    ACTION_ARGS=()
-    GET_ARGS=()
+    action_args=()
+    get_args=()
 
     if [ -n "$KUBECTL_FORCE_NAMESPACE" ]; then
-      ACTION_ARGS+=(--namespace "$KUBECTL_FORCE_NAMESPACE")
-      GET_ARGS+=(--namespace "$KUBECTL_FORCE_NAMESPACE")
+      action_args+=(--namespace "$KUBECTL_FORCE_NAMESPACE")
+      get_args+=(--namespace "$KUBECTL_FORCE_NAMESPACE")
     fi
 
     if [ -n "$KUBECTL_FORCE_CONTEXT" ]; then
-      ACTION_ARGS+=(--context "$KUBECTL_FORCE_CONTEXT")
-      GET_ARGS+=(--context "$KUBECTL_FORCE_CONTEXT")
+      action_args+=(--context "$KUBECTL_FORCE_CONTEXT")
+      get_args+=(--context "$KUBECTL_FORCE_CONTEXT")
     fi
 
     # some actions take a type
-    case "$ACTION" in
+    case "$action" in
       'get' | 'g' | 'describe' | 'd' | 'edit' | 'e')
         if [ "$#" -eq 0 ]; then
           __log_warning "${BOLD}type${NORMAL} (pod, deploy, ing, svc, etc.) not provided; prompting..."
-          TYPE="$(__kubectl_select_resource_type "${GET_ARGS[@]}")"
-          if [ -z "$TYPE" ]; then
+          resource_type="$(__kubectl_select_resource_type "${get_args[@]}")"
+          if [ -z "$resource_type" ]; then
             __log_error "${BOLD}type${NORMAL} (pod, deploy, ing, svc, etc.) not selected or provided"
             return 1
           fi
         else
-          TYPE="$1"
+          resource_type="$1"
           shift
         fi
         ;;
       'exec' | 'x')
-        TYPE="pod"
+        resource_type="pod"
         ;;
     esac
 
     for arg in "$@"; do
       if [ "$arg" = '--' ]; then
-        ((ARG_TYPE+=1))
+        ((arg_type+=1))
       elif [ "$arg" = '---' ]; then
-        ((ARG_TYPE+=2))
+        ((arg_type+=2))
       else
-        if [ "$ARG_TYPE" -eq 0 ]; then
-          ACTION_ARGS+=("$arg")
-          GET_ARGS+=("$arg")
-        elif [ "$ARG_TYPE" -eq 1 ]; then
-          GET_ARGS+=("$arg")
+        if [ "$arg_type" -eq 0 ]; then
+          action_args+=("$arg")
+          get_args+=("$arg")
+        elif [ "$arg_type" -eq 1 ]; then
+          get_args+=("$arg")
         else
-          ACTION_ARGS+=("$arg")
+          action_args+=("$arg")
         fi
       fi
     done
 
-    # get user's selected object
-    SELECTION="$(__kubectl_select_many "$TYPE" "${GET_ARGS[@]}")"
+    # get user's selected object or objects
+    # NB: avoid creating subshell when running selection function by using a temp file
+    selection_file="$(mktemp)"
+    __kubectl_select_many "$resource_type" "${get_args[@]}" > "$selection_file"
+    readarray -t selection < "$selection_file"
 
-    if [ -n "$SELECTION" ]; then
-      case "$ACTION" in
+    if [ "${#selection[@]}" -ge 1 ]; then
+      case "$action" in
         get | g)
-          kubectl get -o name "$TYPE" "$SELECTION" "${ACTION_ARGS[@]}" | \
-            eval "$KUBECTL_YAML_VIEWER"
+          kubectl get -o name "$resource_type" "${selection[@]}" "${action_args[@]}" | \
+            eval "$KUBE_FUZZY_YAML_VIEWER"
           ;;
         describe | d)
-          kubectl describe "$TYPE" "$SELECTION" "${ACTION_ARGS[@]}" | \
-            eval "$KUBECTL_YAML_VIEWER"
+          kubectl describe "$resource_type" "${selection[@]}" "${action_args[@]}" | \
+            eval "$KUBE_FUZZY_YAML_VIEWER"
           ;;
         edit | e)
-          kubectl edit "$TYPE" "$SELECTION" "${ACTION_ARGS[@]}"
+          if [ "${#selection[@]}" -gt 1 ]; then
+            # shellcheck disable=2016
+            __log_info 'multiple pods selected; running multiple `edit` commands'
+          fi
+
+          for pod in "${selection[@]}"; do
+            if ! __confirm_then_execute kubectl edit "$resource_type" "${selection[@]}" "${action_args[@]}"; then
+              break
+            fi
+          done
           ;;
         exec | x)
-          if [ "${#ACTION_ARGS[@]}" -eq 0 ]; then
-            kubectl exec "$SELECTION" -it bash
-          else
-            kubectl exec "$SELECTION" "${ACTION_ARGS[@]}"
+          if [ "${#action_args[@]}" -eq 0 ]; then
+            action_args=("${KUBE_FUZZY_DEFAULT_EXEC[@]}")
           fi
+
+          if [ "${#selection[@]}" -gt 1 ]; then
+            # shellcheck disable=2016
+            __log_info 'multiple pods selected; running multiple `exec` commands'
+          fi
+
+          for pod in "${selection[@]}"; do
+            if ! __confirm_then_execute kubectl exec "$pod" "${action_args[@]}"; then
+              break
+            fi
+          done
           ;;
         esac
     else
-      __log_warning "no $TYPE selected"
+      __log_warning "no $resource_type selected"
     fi
   fi
 }

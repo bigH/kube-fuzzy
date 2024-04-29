@@ -1,30 +1,50 @@
 #!/usr/bin/env bash
 
 log_context() {
-  CURRENT_CONTEXT="$(command kubectl config current-context)"
-  if [[ "$CURRENT_CONTEXT" == *'prod'* ]]; then
-    >&2 echo "${YELLOW}current context is ${RED}${BOLD}$CURRENT_CONTEXT${NORMAL}"
+  if [[ "$1" == *'prod'* ]]; then
+    >&2 echo "${YELLOW}current context is ${RED}${BOLD}$1${NORMAL}"
   else
-    >&2 echo "${YELLOW}current context is ${GREEN}${BOLD}$CURRENT_CONTEXT${NORMAL}"
+    >&2 echo "${YELLOW}current context is ${GREEN}${BOLD}$1${NORMAL}"
   fi
   >&2 echo
 }
 
-if [ "$#" -gt 0 ] && [ "$1" == '--log-context' ]; then
-  shift
-  log_context
-  kubectl "$@"
-else
-  CURRENT_CONTEXT="$(command kubectl config current-context)"
-  if [[ "$CURRENT_CONTEXT" == *'prod'* ]]; then
-    log_context
-    >&2 echo -n "    continue? (Y/n): "
-    read -r CONTINUE
+overrides=()
 
-    if [ "$CONTINUE" = "Y" ]; then
-      kubectl "$@"
-    fi
-  else
-    kubectl "$@"
+if [ -n "$KUBECTL_FORCE_NAMESPACE" ]; then
+  overrides+=(--namespace "$KUBECTL_FORCE_NAMESPACE")
+fi
+
+if [ -n "$KUBECTL_FORCE_CONTEXT" ]; then
+  overrides+=(--context "$KUBECTL_FORCE_CONTEXT")
+  EXECUTING_CONTEXT="$KUBECTL_FORCE_CONTEXT"
+fi
+
+if [ -z "$EXECUTING_CONTEXT" ]; then
+  EXECUTING_CONTEXT="$(command kubectl config current-context)"
+fi
+
+if [ "$1" = "--no-log-context" ]; then
+  shift
+else
+  log_context "$EXECUTING_CONTEXT"
+fi
+
+if [[ "$EXECUTING_CONTEXT" == *'prod'* ]]; then
+  >&2 echo -n "    continue? (Y/n): "
+  read -r CONTINUE
+  echo
+
+  final_command=(kubectl "$@")
+  if [ "${#overrides[@]}" -gt 0 ]; then
+    final_command=(kubectl "${overrides[@]}" "$@")
   fi
+
+  if [ "$CONTINUE" = "Y" ] || [ "$CONTINUE" = "y" ]; then
+    "${final_command[@]}"
+  else
+    >&2 echo "    not running command:" "${final_command[@]}"
+  fi
+else
+    "${final_command[@]}"
 fi

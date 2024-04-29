@@ -22,6 +22,7 @@ fi
 
 KUBECTL_FORCE_NAMESPACE="$(__kubectl_select_one namespace)"
 if [ -n "$KUBECTL_FORCE_NAMESPACE" ]; then
+  export KUBECTL_FORCE_NAMESPACE
   "$@"
 else
   __log_warning "no namespace selected - not running command"

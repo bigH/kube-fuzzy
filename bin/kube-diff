@@ -8,15 +8,15 @@ source "$path_to_repo_root/core.sh"
 
 prevent_colorized_and_multiline_output="command cat -"
 
-if [ -z "$kdiff_renderer" ]; then
+if [ -z "$KUBE_DIFF_RENDERER" ]; then
   if [ -t 1 ]; then
     if __command_exists delta; then
-      kdiff_renderer="delta"
+      KUBE_DIFF_RENDERER="delta"
     else
-      kdiff_renderer="less"
+      KUBE_DIFF_RENDERER="less"
     fi
   else
-    kdiff_renderer="command cat -"
+    KUBE_DIFF_RENDERER="command cat -"
   fi
 fi
 
@@ -33,19 +33,19 @@ kube_diff() {
     usage
   fi
 
-  LEFT="$1"
-  RIGHT="$2"
+  left="$1"
+  right="$2"
 
   shift
   shift
 
   if [ -t 1 ]; then
-    diff -u <(eval "kubectl \"--context=$LEFT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
-            <(eval "kubectl \"--context=$RIGHT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
-            | eval "$kdiff_renderer"
+    diff -u <(eval "kubectl \"--context=$left\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            <(eval "kubectl \"--context=$right\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            | eval "$KUBE_DIFF_RENDERER"
   else
-    diff -u <(eval "kubectl \"--context=$LEFT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
-            <(eval "kubectl \"--context=$RIGHT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output")
+    diff -u <(eval "kubectl \"--context=$left\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            <(eval "kubectl \"--context=$right\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output")
   fi
 }
 
