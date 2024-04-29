@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=2164
+path_to_script="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+path_to_repo_root="$( cd -- "$(dirname "$path_to_script")" >/dev/null 2>&1 ; pwd -P )"
+
+source "$path_to_repo_root/core.sh"
+
+# query ends up being ($1|$2|$3|...$n|$) to match all lines, but highlight the terms you want
+QUERY="($([ $# -eq 0 ] && printf '' || printf '%s|' "$@")\$)"
+for i in $(kubectl api-resources --verbs=list -o name | sort | uniq); do
+  echo
+  echo "\$ kubectl get --all-namespaces --ignore-not-found ${i}"
+  if [ -n "$QUERY" ]; then
+    kubectl get --all-namespaces --ignore-not-found "${i}" | grep --color=always -E "$QUERY"
+  else
+    kubectl get --all-namespaces --ignore-not-found "${i}"
+  fi
+done

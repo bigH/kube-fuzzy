@@ -7,10 +7,9 @@ git clone https://github.com/bigH/kube-fuzzy.git
 
 # in your shell rc or local shell when trying it
 PATH="$(pwd)/kube-fuzzy/bin:$PATH"
-source kube-fuzzy/kube-fuzzy.sh
 
 # your choice
-source kube-fuzzy/aliases.sh
+source kube-fuzzy/extras.sh
 ```
 
 ## Usage

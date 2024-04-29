@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ "$#" -eq 0 ]; then
+  kubectl get event --all-namespaces --sort-by=".metadata.creationTimestamp"
+else
+  kubectl get event --all-namespaces --sort-by=".metadata.creationTimestamp" "$@"
+fi

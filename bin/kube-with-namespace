@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=2164
+path_to_script="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+path_to_repo_root="$( cd -- "$(dirname "$path_to_script")" >/dev/null 2>&1 ; pwd -P )"
+
+source "$path_to_repo_root/core.sh"
+
+if ! [ -t 1 ] || ! [ -t 0 ] ; then
+  __log_error "not running interactively"
+  echo
+  echo "Usage: kube-with-namespace <command>"
+  exit 1
+fi
+
+if [ "$#" -eq 0 ]; then
+  __log_error "no command provided"
+  echo
+  echo "Usage: kube-with-namespace <command>"
+  exit 1
+fi
+
+KUBECTL_FORCE_NAMESPACE="$(__kubectl_select_one namespace)"
+if [ -n "$KUBECTL_FORCE_NAMESPACE" ]; then
+  "$@"
+else
+  __log_warning "no namespace selected - not running command"
+fi
+unset KUBECTL_FORCE_NAMESPACE

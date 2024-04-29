@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=2164
+path_to_script="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+path_to_repo_root="$( cd -- "$(dirname "$path_to_script")" >/dev/null 2>&1 ; pwd -P )"
+
+source "$path_to_repo_root/core.sh"
+
+prevent_colorized_and_multiline_output="command cat -"
+
+if [ -z "$kdiff_renderer" ]; then
+  if [ -t 1 ]; then
+    if __command_exists delta; then
+      kdiff_renderer="delta"
+    else
+      kdiff_renderer="less"
+    fi
+  else
+    kdiff_renderer="command cat -"
+  fi
+fi
+
+usage() {
+  echo "Usage: kube-diff [context-a] [context-b] <kubectl command>"
+  echo
+  echo "Examples:"
+  echo "  \$ kube-diff qa prod describe deployment xyz"
+  exit 1
+}
+
+kube_diff() {
+  if [ "$#" -lt 3 ]; then
+    usage
+  fi
+
+  LEFT="$1"
+  RIGHT="$2"
+
+  shift
+  shift
+
+  if [ -t 1 ]; then
+    diff -u <(eval "kubectl \"--context=$LEFT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            <(eval "kubectl \"--context=$RIGHT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            | eval "$kdiff_renderer"
+  else
+    diff -u <(eval "kubectl \"--context=$LEFT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            <(eval "kubectl \"--context=$RIGHT\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output")
+  fi
+}
+
+if [ "$#" -eq 0 ]; then
+  usage
+else
+  kube_diff "$@"
+fi

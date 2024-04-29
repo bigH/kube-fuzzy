@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=2164
+path_to_script="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+path_to_repo_root="$( cd -- "$(dirname "$path_to_script")" >/dev/null 2>&1 ; pwd -P )"
+
+source "$path_to_repo_root/core.sh"
+
+CURRENT_CONTEXT="$(kubectl config current-context)"
+KUBECTL_SELECTED_NAMESPACE="$(__kubectl_select_one namespace)"
+if [ -n "$KUBECTL_SELECTED_NAMESPACE" ]; then
+  kubectl config set-context "$CURRENT_CONTEXT" --namespace "$KUBECTL_SELECTED_NAMESPACE"
+else
+  __log_warning "no namespace selected"
+fi

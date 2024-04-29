@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=2164
+path_to_script="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+path_to_repo_root="$( cd -- "$(dirname "$path_to_script")" >/dev/null 2>&1 ; pwd -P )"
+
+source "$path_to_repo_root/core.sh"
+
+# shellcheck disable=2016
+HELP_TEXT="
+Usage:
+  kf  <action> ...
+
+  # interactively selects namespace to apply command to
+  kfn <action> ...
+
+  # interactively selects context to apply command to
+  kfc <action> ...
+
+Arguments:
+  '--' splits the arg list into 3 useful parts
+  '---' is equivalent to '-- --'
+
+  kf <command> [type] [...global args] -- [...get args] -- [...preview args]
+  kf <command> [type] [...global args] --- [...preview args]
+
+  # For example, this command
+  kf exec --context=foo -n bar --- -it bin/console
+
+    # Delegates to this one for the list
+    kubectl get pod --context=foo -n bar
+
+    # Delegates to this one for the preview
+    kubectl describe pod <selection> --context=foo -n bar
+
+    # Once a pod is selected, the command will run
+    kubectl exec <selection> -it bin/console
+
+Commands:
+
+  # Interactively list and look at the YAML for some <type> (get + describe)
+
+    # print resource name
+    kf get <type> [...args]
+
+    # print yaml of resource
+    kf describe <type> [...args]
+
+  # Interactively select an item of <type> to edit
+
+    kf edit <type> [...args]
+
+  # Interactively select a pod to execute a command against (no args == '-it bash')
+
+    kf exec [...args]
+
+Gotchas:
+
+ - '--all-namespaces' will not work properly because forwarding namespace
+   to later commands will not work - for that use 'kube-with-namespace'
+"
+
+kube_fuzzy() {
+  if [ "$#" -eq 0 ]; then
+    __log_error "${BOLD}action${NORMAL} (exec, describe, etc.) is ${BOLD}required${NORMAL}"
+    echo "$HELP_TEXT"
+    return 1
+  else
+    # get action
+    ACTION="$1"
+    shift
+
+    # split the arg list
+    ARG_TYPE='0'
+
+    ACTION_ARGS=()
+    GET_ARGS=()
+
+    if [ -n "$KUBECTL_FORCE_NAMESPACE" ]; then
+      ACTION_ARGS+=(--namespace "$KUBECTL_FORCE_NAMESPACE")
+      GET_ARGS+=(--namespace "$KUBECTL_FORCE_NAMESPACE")
+    fi
+
+    if [ -n "$KUBECTL_FORCE_CONTEXT" ]; then
+      ACTION_ARGS+=(--context "$KUBECTL_FORCE_CONTEXT")
+      GET_ARGS+=(--context "$KUBECTL_FORCE_CONTEXT")
+    fi
+
+    # some actions take a type
+    case "$ACTION" in
+      'get' | 'g' | 'describe' | 'd' | 'edit' | 'e')
+        if [ "$#" -eq 0 ]; then
+          __log_warning "${BOLD}type${NORMAL} (pod, deploy, ing, svc, etc.) not provided; prompting..."
+          TYPE="$(__kubectl_select_resource_type "${GET_ARGS[@]}")"
+          if [ -z "$TYPE" ]; then
+            __log_error "${BOLD}type${NORMAL} (pod, deploy, ing, svc, etc.) not selected or provided"
+            return 1
+          fi
+        else
+          TYPE="$1"
+          shift
+        fi
+        ;;
+      'exec' | 'x')
+        TYPE="pod"
+        ;;
+    esac
+
+    for arg in "$@"; do
+      if [ "$arg" = '--' ]; then
+        ((ARG_TYPE+=1))
+      elif [ "$arg" = '---' ]; then
+        ((ARG_TYPE+=2))
+      else
+        if [ "$ARG_TYPE" -eq 0 ]; then
+          ACTION_ARGS+=("$arg")
+          GET_ARGS+=("$arg")
+        elif [ "$ARG_TYPE" -eq 1 ]; then
+          GET_ARGS+=("$arg")
+        else
+          ACTION_ARGS+=("$arg")
+        fi
+      fi
+    done
+
+    # get user's selected object
+    SELECTION="$(__kubectl_select_many "$TYPE" "${GET_ARGS[@]}")"
+
+    if [ -n "$SELECTION" ]; then
+      case "$ACTION" in
+        get | g)
+          kubectl get -o name "$TYPE" "$SELECTION" "${ACTION_ARGS[@]}" | \
+            eval "$KUBECTL_YAML_VIEWER"
+          ;;
+        describe | d)
+          kubectl describe "$TYPE" "$SELECTION" "${ACTION_ARGS[@]}" | \
+            eval "$KUBECTL_YAML_VIEWER"
+          ;;
+        edit | e)
+          kubectl edit "$TYPE" "$SELECTION" "${ACTION_ARGS[@]}"
+          ;;
+        exec | x)
+          if [ "${#ACTION_ARGS[@]}" -eq 0 ]; then
+            kubectl exec "$SELECTION" -it bash
+          else
+            kubectl exec "$SELECTION" "${ACTION_ARGS[@]}"
+          fi
+          ;;
+        esac
+    else
+      __log_warning "no $TYPE selected"
+    fi
+  fi
+}
+
+if [ "$#" -eq 0 ]; then
+  kube_fuzzy
+else
+  kube_fuzzy "$@"
+fi
