@@ -10,6 +10,7 @@ echo "export PATH=\"$(pwd)/kube-fuzzy/bin:\$PATH\"" >> ~/.bashrc
 
 # optional, but useful
 echo "source \"$(pwd)/kube-fuzzy/extras.sh" >> ~/.bashrc
+echo "source \"$(pwd)/kube-fuzzy/aliases.sh" >> ~/.bashrc
 ```
 
 ## What's Included?
@@ -20,8 +21,8 @@ echo "source \"$(pwd)/kube-fuzzy/extras.sh" >> ~/.bashrc
 - `kube-get-all` - get every resource type and then list every resource within
 - `kube-set-namespace` - set the current namespace for kubectl
 - `kube-set-context` - set the current context for kubectl
-- `kube-with-namespace` - for a single command, set the namespace/context before running it (only works with `kube-fuzzy` & `kubectl-wrapper`)
-- `kube-with-context` - for a single command, set the namespace/context before running it (only works with `kube-fuzzy` & `kubectl-wrapper`)
+- `kube-with-namespace` - for a _single command_, set the namespace/context before running it (only works with `kube-fuzzy` & `kubectl-wrapper`)
+- `kube-with-context` - for a _single command_, set the namespace/context before running it (only works with `kube-fuzzy` & `kubectl-wrapper`)
 
 `kubectl-wrapper` is also an included command - meant to be used in place of kubectl whereever possible. It will automatically check and print the context. In `*prod*` contexts, it confirms any execution of `kubectl`. It's also useful to map to this for `kubectl exec` and `kubectl edit` command aliases.
 
@@ -64,11 +65,17 @@ alias kwcn=kube-with-context kube-with-namespace
 
 ```bash
 some-command-that-takes-pod $(kube-fuzzy get pods)
+# OR with aliases
+some-command-that-takes-pod $(kf g pods)
 
 # just shell into pod of choice
 kube-fuzzy exec
+# OR with aliases
+kx
 
 # in a different namespace and context, select pods and echo 
 kube-with-context kube-with-namespace \
     kube-fuzzy exec pods bash -c 'echo Hello, $HOSTNAME!'
+# OR with aliases
+kwcn kf exec pod bash -c 'echo Hello, $HOSTNAME!'
 ```
