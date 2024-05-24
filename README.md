@@ -46,8 +46,11 @@ export KUBE_DIFF_RENDERER="delta --side-by-side"
 ```bash
 alias kf=kube-fuzzy
 
-# exec default is `-it bash`, so select a pod and get a shell
-alias kx=kube-fuzzy exec
+# exec on pods
+alias kx="kube-fuzzy get pod | xargs -n 1 -I '{}' kubectl exec '{}' --"
+
+# exec on pods with confirmation on each command being run
+alias kx="kube-fuzzy get pod | xargs -p -n 1 -I '{}' kubectl exec '{}' --"
 
 # set namespace / context durably
 alias ksn=kube-set-namespace
@@ -64,9 +67,9 @@ alias kwcn=kube-with-context kube-with-namespace
 ## Usage
 
 ```bash
-some-command-that-takes-pod $(kube-fuzzy get pods)
+some-command-that-takes-pods $(kube-fuzzy get pods)
 # OR with aliases
-some-command-that-takes-pod $(kf g pods)
+some-command-that-takes-pods $(kf g pods)
 
 # just shell into pod of choice
 kube-fuzzy exec

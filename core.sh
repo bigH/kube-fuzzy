@@ -16,6 +16,10 @@ __log_info() {
   echo "[${GREEN}${BOLD}INFO${NORMAL}] $*"
 }
 
+__strip_colors() {
+  sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g"
+}
+
 if [ -z "$FZF_DEFAULT_OPTS" ]; then
   export FZF_DEFAULT_OPTS="\
   --border \
@@ -87,6 +91,7 @@ __kubectl_select_one() {
       --ansi \
       --header-lines=1 \
       --preview "kubectl get $SUBJECT $ARGS {1} -o yaml | $KUBE_FUZZY_YAML_VIEWER" | \
+    __strip_colors | \
     awk '{ print $1 }'
 }
 
@@ -105,6 +110,7 @@ __kubectl_select_many() {
       --ansi \
       --header-lines=1 \
       --preview "kubectl get $SUBJECT $ARGS {1} -o yaml | $KUBE_FUZZY_YAML_VIEWER" | \
+    __strip_colors | \
     awk '{ print $1 }'
 }
 
@@ -117,6 +123,7 @@ __kubectl_select_resource_type() {
       --ansi \
       --header-lines=1 \
       --preview "kubectl get {1} $ARGS | $KUBE_FUZZY_YAML_VIEWER" | \
+    __strip_colors | \
     awk '{ print $1 }'
 }
 
@@ -127,6 +134,9 @@ __kubectl_select_context() {
 
   kubectl config get-contexts -o name | \
       fzf +m \
+        --no-multi \
+        --ansi \
         --header "$CURRENT_CONTEXT_INFO" \
-        --no-preview
+        --no-preview | \
+    __strip_colors
 }

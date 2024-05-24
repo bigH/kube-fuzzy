@@ -14,20 +14,22 @@ if [ -z "$KUBE_FUZZY_YAML_VIEWER" ]; then
   fi
 fi
 
+PROGRAM_NAME="$(basename "$0")"
+
 # shellcheck disable=2016
 help_text="
 Usage:
-  $0 <action> ...
+  $PROGRAM_NAME <action> ...
 
 Arguments:
   '--' splits the arg list into 3 useful parts
   '---' is equivalent to '-- --'
 
-  $0 <command> [type] [...global args] -- [...get args] -- [...preview args]
-  $0 <command> [type] [...global args] --- [...preview args]
+  $PROGRAM_NAME <command> [type] [...global args] -- [...get args] -- [...preview args]
+  $PROGRAM_NAME <command> [type] [...global args] --- [...preview args]
 
   # For example, in this command structure:
-  $0 get pods <shared args> -- <get args> -- <preview args>
+  $PROGRAM_NAME get pods <shared args> -- <get args> -- <preview args>
 
     # Delegates to this one for the list
     kubectl get pod <shared args> <get args>
@@ -35,38 +37,43 @@ Arguments:
     # Delegates to this one for the preview
     kubectl describe pod <shared args> <preview args> | eval \$KUBE_FUZZY_YAML_VIEWER
 
+    # Selecting pods then pressing <Enter> will print the pod names -
+    #   great for piping to other commands or command-substitution.
+
 Commands:
 
   # Interactively list and look at the YAML for some <type> (get + describe)
 
     # print resource name
-    $0 get <type> [...args]
+    $PROGRAM_NAME get <type> [...args]
 
     # print yaml of resource
-    $0 describe <type> [...args]
+    $PROGRAM_NAME describe <type> [...args]
 
   # Interactively select an item of <type> to edit
+    $PROGRAM_NAME get <type> [...args] | xargs -n1 kubectl edit <type>
 
-    $0 get <type> [...args] | xargs -n1 kubectl edit <type>
-
-  # Interactively select an item of <type> to edit
-
-    $0 get <type> [...args] | xargs -I'{}' -n1 kubectl exec '{}' -- <command>
+  # Interactively select a pod to exec <command> (see alias 'kx')
+    $PROGRAM_NAME get pod [...args] | xargs -o -n1 -I'{}' kubectl exec -it '{}' -- <command>
 
 Gotchas:
 
- - '--all-namespaces' will not work properly because forwarding namespace
-   to later commands will not work - for that use 'kube-with-namespace'
+- '--all-namespaces' will not work properly because forwarding namespace
+  to later commands will not work - for that use 'kube-with-namespace'
 
 Advanced:
 
- - Set the KUBE_FUZZY_YAML_VIEWER environment variable to a command that
-   will render/page YAML to the terminal. For example, 'less'.
+- Set the KUBE_FUZZY_YAML_VIEWER environment variable to a command that
+  will render/page YAML to the terminal. For example, 'less'.
+
+Useful Aliases:
+
+$(sed 's/^/  /' "$path_to_repo_root/aliases.sh")
 "
 
 kube_fuzzy() {
   if [ "$#" -eq 0 ]; then
-    __log_error "${BOLD}action${NORMAL} (describe, etc.) is ${BOLD}required${NORMAL}"
+    __log_error "${BOLD}action${NORMAL} (get OR describe) is ${BOLD}required${NORMAL}"
     echo "$help_text"
     return 1
   else
@@ -135,8 +142,7 @@ kube_fuzzy() {
     if [ "${#selection[@]}" -ge 1 ]; then
       case "$action" in
         get | g)
-          kubectl get -o name "$resource_type" "${selection[@]}" "${action_args[@]}" | \
-            eval "$KUBE_FUZZY_YAML_VIEWER"
+          kubectl get -o name "$resource_type" "${selection[@]}" "${action_args[@]}"
           ;;
         describe | d)
           kubectl describe "$resource_type" "${selection[@]}" "${action_args[@]}" | \
