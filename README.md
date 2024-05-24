@@ -75,7 +75,7 @@ kx
 
 # in a different namespace and context, select pods and echo 
 kube-with-context kube-with-namespace \
-    kube-fuzzy exec pods bash -c 'echo Hello, $HOSTNAME!'
+    kube-fuzzy exec bash -c 'echo Hello, $HOSTNAME!'
 # OR with aliases
-kwcn kf exec pod bash -c 'echo Hello, $HOSTNAME!'
+kwcn kx bash -c 'echo Hello, $HOSTNAME!'
 ```

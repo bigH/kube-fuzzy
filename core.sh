@@ -90,6 +90,24 @@ __kubectl_select_one() {
     awk '{ print $1 }'
 }
 
+__kubectl_select_many() {
+  SUBJECT=pods
+  if [ "$#" -gt 0 ]; then
+    SUBJECT="$1"
+    shift
+  fi
+
+  ARGS="$([ $# -eq 0 ] && printf '' || printf '%q ' "$@")"
+
+  kubectl get "$SUBJECT" "$@" | \
+    fzf \
+      --multi \
+      --ansi \
+      --header-lines=1 \
+      --preview "kubectl get $SUBJECT $ARGS {1} -o yaml | $KUBE_FUZZY_YAML_VIEWER" | \
+    awk '{ print $1 }'
+}
+
 __kubectl_select_resource_type() {
   ARGS="$([ $# -eq 0 ] && printf '' || printf '%q ' "$@")"
 
