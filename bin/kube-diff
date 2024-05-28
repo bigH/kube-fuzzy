@@ -21,11 +21,41 @@ if [ -z "$KUBE_DIFF_RENDERER" ]; then
 fi
 
 usage() {
-  echo "Usage: kube-diff [context-a] [context-b] <kubectl command>"
+  echo "Usage: kube-diff [source-a] [source-b] <kubectl command>"
   echo
   echo "Examples:"
-  echo "  \$ kube-diff qa prod describe deployment xyz"
+  echo "  # compare within separate context-namespace pairs"
+  echo "  \$ kube-diff : prod:green describe deployment xyz"
+  echo
+  echo "Source formats:"
+  echo "  context:namespace - specific context and namespace"
+  echo "  :namespace        - current context, specific namespace"
+  echo "  context           - specific context, default namespace"
+  echo "  context:          - specific context, default namespace"
+  echo "  :                 - current context and namespace"
+  echo
   exit 1
+}
+
+parse_source() {
+  ref="$1"
+  case "$ref" in
+    :)
+      printf ''
+      ;;
+    *:)
+      printf '%q ' "--context=${ref%%:*}"
+      ;;
+    :*)
+      printf '%q ' "--namespace=${ref##*:}"
+      ;;
+    *:*)
+      printf '%q ' "--context=${ref%%:*}" "--namespace=${ref##*:}"
+      ;;
+    *)
+      printf '%q ' "--context=${ref}"
+      ;;
+  esac
 }
 
 kube_diff() {
@@ -33,23 +63,23 @@ kube_diff() {
     usage
   fi
 
-  left="$1"
-  right="$2"
+  left="$(parse_args "$1")"
+  right="$(parse_args "$2")"
 
   shift
   shift
 
   if [ -t 1 ]; then
-    diff -u <(eval "kubectl \"--context=$left\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
-            <(eval "kubectl \"--context=$right\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+    diff -u <(eval "kubectl $left $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            <(eval "kubectl $right $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
             | eval "$KUBE_DIFF_RENDERER"
   else
-    diff -u <(eval "kubectl \"--context=$left\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
-            <(eval "kubectl \"--context=$right\" $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output")
+    diff -u <(eval "kubectl $left $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output") \
+            <(eval "kubectl $right $(printf ' %q' "$@") | $prevent_colorized_and_multiline_output")
   fi
 }
 
-if [ "$#" -eq 0 ]; then
+if [ "$#" -lt 3 ]; then
   usage
 else
   kube_diff "$@"

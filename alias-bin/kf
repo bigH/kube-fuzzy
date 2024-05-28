@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ "$#" -eq 0 ]; then
+  kube-fuzzy
+else
+  kube-fuzzy "$@"
+fi

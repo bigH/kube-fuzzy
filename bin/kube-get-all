@@ -8,12 +8,12 @@ source "$path_to_repo_root/core.sh"
 
 # query ends up being ($1|$2|$3|...$n|$) to match all lines, but highlight the terms you want
 QUERY="($([ $# -eq 0 ] && printf '' || printf '%s|' "$@")\$)"
-for i in $(kubectl api-resources --verbs=list -o name | sort | uniq); do
+for i in $(kubectl-wrapper --no-log-context api-resources --verbs=list -o name | sort | uniq); do
   echo
-  echo "\$ kubectl get --all-namespaces --ignore-not-found ${i}"
+  echo "\$ kubectl-wrapper --no-log-context get --all-namespaces --ignore-not-found ${i}"
   if [ -n "$QUERY" ]; then
-    kubectl get --all-namespaces --ignore-not-found "${i}" | grep --color=always -E "$QUERY"
+    kubectl-wrapper --no-log-context get --all-namespaces --ignore-not-found "${i}" | grep --color=always -E "$QUERY"
   else
-    kubectl get --all-namespaces --ignore-not-found "${i}"
+    kubectl-wrapper --no-log-context get --all-namespaces --ignore-not-found "${i}"
   fi
 done

@@ -66,9 +66,6 @@ Advanced:
 - Set the KUBE_FUZZY_YAML_VIEWER environment variable to a command that
   will render/page YAML to the terminal. For example, 'less'.
 
-Useful Aliases:
-
-$(sed 's/^/  /' "$path_to_repo_root/aliases.sh")
 "
 
 kube_fuzzy() {

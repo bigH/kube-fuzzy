@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ "$#" -eq 0 ]; then
+  kube-with-context kube-with-namespace
+else
+  kube-with-context kube-with-namespace "$@"
+fi

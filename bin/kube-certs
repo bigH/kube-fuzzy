@@ -7,10 +7,10 @@ path_to_repo_root="$( cd -- "$(dirname "$path_to_script")" >/dev/null 2>&1 ; pwd
 source "$path_to_repo_root/core.sh"
 
 ARGS="$([ $# -eq 0 ] && printf '' || printf '%q ' "$@")"
-kubectl get secret "$@" | \
+kubectl-wrapper --no-log-context get secret "$@" | \
   fzf \
     --no-multi \
     --ansi \
     --header-lines=1 \
-    --preview "echo {1} ; kubectl get secret {1} $ARGS -o jsonpath='{.data.tls\\.crt}' | xargs echo | base64 -D | openssl x509 -text -noout" | \
+    --preview "echo {1} ; kubectl-wrapper --no-log-context get secret {1} $ARGS -o jsonpath='{.data.tls\\.crt}' | xargs echo | base64 -D | openssl x509 -text -noout" | \
   awk '{ print $1 }'

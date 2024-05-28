@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+if [ "$#" -eq 0 ]; then
+  echo "Usage: kube-fuzzy-exec <command>"
+  echo
+  echo "Examples:"
+  echo "  kube-fuzzy-exec bash -c 'echo Hello \$HOSTNAME'"
+  echo "  kube-fuzzy-exec --prompt bash -c 'rm -rf /tmp'"
+  echo "  kube-fuzzy-exec apt install foo"
+  exit 1
+fi
+
+if [ "$1" = '--prompt' ]; then
+  shift
+  kube-fuzzy get pod | xargs -p -o -n 1 -I {} kubectl-wrapper --no-log-context exec {} -- "$@"
+else
+  kube-fuzzy get pod | xargs -o -n 1 -I {} kubectl-wrapper --no-log-context exec {} -- "$@"
+fi
+

@@ -5,15 +5,15 @@ __command_exists() {
 }
 
 __log_error() {
-  echo "[${RED}${BOLD}ERROR${NORMAL}] $*"
+  echo "[${RED}${BOLD}ERROR${NORMAL}] $*" >&2
 }
 
 __log_warning() {
-  echo "[${YELLOW}${BOLD}WARNING${NORMAL}] $*"
+  echo "[${YELLOW}${BOLD}WARNING${NORMAL}] $*" >&2
 }
 
 __log_info() {
-  echo "[${GREEN}${BOLD}INFO${NORMAL}] $*"
+  echo "[${GREEN}${BOLD}INFO${NORMAL}] $*" >&2
 }
 
 __strip_colors() {

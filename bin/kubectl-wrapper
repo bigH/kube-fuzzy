@@ -24,27 +24,54 @@ if [ -z "$EXECUTING_CONTEXT" ]; then
   EXECUTING_CONTEXT="$(command kubectl config current-context)"
 fi
 
-if [ "$1" = "--no-log-context" ]; then
-  shift
-else
+action="unsafe"
+log_context="yes"
+
+while [ "$1" = "--no-prompt-for-prod-writes" ] || [ "$1" = "--no-log-context" ]; do
+  case "$1" in
+    --no-prompt-for-prod-writes)
+      action="ignore_safety"
+      shift
+      ;;
+    --no-log-context)
+      log_context="no"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [ "$log_context" = "yes" ]; then
   log_context "$EXECUTING_CONTEXT"
 fi
 
-if [[ "$EXECUTING_CONTEXT" == *'prod'* ]]; then
-  >&2 echo -n "    continue? (Y/n): "
+for arg in "$@"; do
+  case "$arg" in
+    # allow reads as safe
+    'get' | 'describe' | 'logs' | 'events' | 'explain' | 'wait' | 'api-resources' | 'api-versions' | 'version' | 'top')
+      action="safe"
+      break
+  esac
+done
+
+final_command=(kubectl "$@")
+if [ "${#overrides[@]}" -gt 0 ]; then
+  final_command=(kubectl "${overrides[@]}" "$@")
+fi
+
+if [ "$action" == "unsafe" ] && [ -t 0 ] && [[ "$EXECUTING_CONTEXT" == *'prod'* ]]; then
+  # only prompt if we're able to get stdin and the command is unsafe
+  >&2 echo -n "    context is '${EXECUTING_CONTEXT}'; continue? (Y/n): "
   read -r CONTINUE
   echo
-
-  final_command=(kubectl "$@")
-  if [ "${#overrides[@]}" -gt 0 ]; then
-    final_command=(kubectl "${overrides[@]}" "$@")
-  fi
 
   if [ "$CONTINUE" = "Y" ] || [ "$CONTINUE" = "y" ]; then
     "${final_command[@]}"
   else
-    >&2 echo "    not running command:" "${final_command[@]}"
+    >&2 echo "    not running command: " "${final_command[@]}"
   fi
 else
-    "${final_command[@]}"
+  "${final_command[@]}"
 fi
